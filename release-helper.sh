@@ -1,5 +1,5 @@
 #!/bin/bash
-#/ Usage: release-helper.sh [-hdc] <version>
+#/ Usage: release-helper.sh [-hdc] [-r <version>]
 #/
 #/ Creates a temporary branch from which a new release will be tagged and pushed.
 #/
@@ -7,7 +7,7 @@
 #/   -h | --help        Show this message.
 #/   -d | --delete      Delete a tag / release
 #/   -c | --check       Check current releases on GitHub
-#/   <version>          Target Cachet Version (ex: v2.3.13)
+#/   -r | --release     Target Cachet Version (ex: -t v2.3.13)
 #/
 set -e
 
@@ -58,7 +58,7 @@ if [ -z "$token" ]
 fi
 
 # Parse args.
-ARGS=$(getopt --name "$0" --long help,delete,check --options hdc -- "$@") || {
+ARGS=$(getopt --name "$0" --long help,delete,check,release --options hdcr -- "$@") || {
   usage
   exit 2
 }
@@ -80,8 +80,11 @@ while [ $# -gt 0 ]; do
       check_releases
       exit 0
       ;;
-    --)
+    -r|--release)
       cachet_version=$2
+      shift
+      ;;
+    --)
       shift
       break
       ;;
