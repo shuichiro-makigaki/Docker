@@ -31,42 +31,6 @@ check_database_connection() {
   echo
 }
 
-checkdbinitmysql() {
-    table=sessions
-    if [[ "$(mysql -N -s -h "${DB_HOST}" -u "${DB_USERNAME}" "${DB_PASSWORD:+-p$DB_PASSWORD}" "${DB_DATABASE}" -P "${DB_PORT}" -e \
-        "select count(*) from information_schema.tables where \
-            table_schema='${DB_DATABASE}' and table_name='${DB_PREFIX}${table}';")" -eq 1 ]]; then
-        echo "Table ${DB_PREFIX}${table} exists! ..."
-    else
-        echo "Table ${DB_PREFIX}${table} does not exist! ..."
-        init_db
-    fi
-
-}
-
-checkdbinitpsql() {
-    table=sessions
-    export PGPASSWORD=${DB_PASSWORD}
-    if [[ "$(psql -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_USERNAME}" -d "${DB_DATABASE}" -c "SELECT to_regclass('${DB_PREFIX}${table}');" | grep -c "${DB_PREFIX}${table}")" -eq 1 ]]; then
-        echo "Table ${DB_PREFIX}${table} exists! ..."
-    else
-        echo "Table ${DB_PREFIX}${table} does not exist! ..."
-        init_db
-    fi
-
-}
-
-check_configured() {
-  case "${DB_DRIVER}" in
-    mysql)
-      checkdbinitmysql
-      ;;
-    pgsql)
-      checkdbinitpsql
-      ;;
-  esac
-}
-
 initialize_system() {
   echo "Initializing Cachet container ..."
 
@@ -202,17 +166,14 @@ initialize_system() {
   rm -rf bootstrap/cache/*
 }
 
-init_db() {
-  echo "Initializing Cachet database ..."
-  php artisan app:install
-  check_configured
-}
-
 migrate_db() {
-  force=""
+  check_database_connection
   if [[ "${FORCE_MIGRATION:-false}" == true ]]; then
     force="--force"
+  else
+    force=""
   fi
+  echo "Initializing Cachet database ..."
   php artisan migrate ${force}
 }
 
@@ -222,12 +183,11 @@ seed_db() {
 
 start_system() {
   initialize_system
-  check_database_connection
-  check_configured
   migrate_db
   seed_db
-  echo "Starting Cachet! ..."
+  php artisan vendor:publish --all
   php artisan config:cache
+  echo "Starting Cachet! ..."
   /usr/bin/supervisord -n -c /etc/supervisor/supervisord.conf
 }
 

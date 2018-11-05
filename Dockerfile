@@ -5,9 +5,11 @@ CMD ["/sbin/entrypoint.sh"]
 
 ARG cachet_ver
 ARG archive_url
+ARG app_env
 
 ENV cachet_ver ${cachet_ver:-master}
 ENV archive_url ${archive_url:-https://github.com/cachethq/Cachet/archive/${cachet_ver}.tar.gz}
+ENV app_env ${app_env:-development}
 
 ENV COMPOSER_VERSION 1.6.3
 
@@ -49,7 +51,7 @@ RUN apk add --no-cache --update \
     php7-zip \
     php7-zlib \
     php7-tokenizer \
-    wget sqlite git curl bash grep \
+    wget git curl bash grep yarn g++ make zlib-dev libpng-dev openssl \
     supervisor
 
 # forward request and error logs to docker log collector
@@ -84,7 +86,10 @@ RUN wget ${archive_url} && \
     chown -R www-data:root /var/www/html && \
     rm -r ${cachet_ver}.tar.gz && \
     php /bin/composer.phar global require "hirak/prestissimo:^0.3" && \
-    php /bin/composer.phar install -o && \
+    if [[ ${app_env} == 'development' ]]; then nodev=''; else nodev='--no-dev'; fi && \
+    php /bin/composer.phar install ${nodev} -o && \
+    yarn install && \
+    yarn run ${app_env} && \
     rm -rf bootstrap/cache/*
 
 COPY conf/php-fpm-pool.conf /etc/php7/php-fpm.d/www.conf
